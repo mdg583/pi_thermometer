@@ -1,14 +1,5 @@
-import os,sys,time,csv
+import os,sys,time
 from datetime import date
-
-libdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'lib')
-if os.path.exists(libdir):
-  sys.path.append(libdir)
-else:
-  sys.exit("Can't find lib")
-
-import board,busio,adafruit_dht,adafruit_bmp280b
-from waveshare_epd import epd2in7
 from PIL import Image, ImageDraw, ImageFont
 
 from EpdDisplay import EpdDisplay
@@ -73,6 +64,7 @@ class opts:
   text_length = 75 # hspace for current readings on left
   fsize = 16       # size of current readings font
   fsize_small = 10 # size of axis label font
+
   plot_gap = 5     # vspace between blots
   axiswidth = 15   # space for tick labels beside plot
 

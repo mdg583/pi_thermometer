@@ -1,3 +1,6 @@
+import board,busio,adafruit_dht
+from lib import adafruit_bmp280b
+
 class Weather:
   def __init__(self,sea_level_pressure=1013.25):
     i2c = busio.I2C(board.SCL, board.SDA)

@@ -1,3 +1,5 @@
+from lib.waveshare_epd import epd2in7
+
 class EpdDisplay:
   epd = None
 
