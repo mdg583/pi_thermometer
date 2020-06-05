@@ -4,6 +4,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from EpdDisplay import EpdDisplay
 from Weather import Weather
+from WData import WData
 
 # Feature: zoom
 # - one x-value for each 5 minutes
@@ -32,27 +33,37 @@ from Weather import Weather
 def plot_data(draw, x, pos, size, minspan=5):
   (px,py) = pos
   (w,h) = size
-  draw.line((px+opts.axiswidth,py,px+opts.axiswidth,py+h),fill=0)
-  for i in range(0,int((w-opts.axiswidth)/5)):
-    draw.point((px+opts.axiswidth+5*i,py+h/2),fill=0)
+  draw.line((px+opts.axis_width,py,px+opts.axis_width,py+h),fill=0)
+  for i in range(0,int((w-opts.axis_width)/5)):
+    draw.point((px+opts.axis_width+5*i,py+h/2),fill=0)
   # TODO zoom
-  x2 = x[-(w-opts.axiswidth)]
-  if len(x2)==0: return
-  minx = min(x2)
-  maxx = max(x2)
-  meanx = (maxx+minx)/2
-  spanx = maxx-minx
-  if spanx < minspan:
-    maxx = meanx + minspan/2
-    minx = meanx - minspan/2
-  points = []
-  for i in range(len(x2)):
-    # TODO: what if data is missing? Leave a gap.
-    voffset = (x2[i] - minx) / (maxx - minx)
-    points.append((px+opts.axiswidth+i,py+h*(1-voffset)))
-  draw.line(points,fill=0)
-  draw.text((px,py),"{:.0f}".format(maxx),font=font_small,fill=0)
-  draw.text((px,py+h-10),"{:.0f}".format(minx),font=font_small,fill=0)
+  if w > opts.axis_width:
+    x2 = x[max(len(x)-(w-opts.axis_width),0):len(x)]
+  else:
+    x2 = []
+ 
+  x2_trim = list(filter(lambda y: y is not None,x2))
+  if len(x2_trim)>0:
+    minx = min(x2_trim)
+    maxx = max(x2_trim)
+    meanx = (maxx+minx)/2
+    spanx = maxx-minx
+    if spanx < minspan:
+      maxx = meanx + minspan/2
+      minx = meanx - minspan/2
+    points = []
+    for i in range(len(x2)):
+      if x2[i] is None:
+        if len(points)>0:
+          draw.line(points,fill=0)
+        points = []
+      else:
+        voffset = (x2[i] - minx) / (maxx - minx)
+        points.append((px+opts.axis_width+i,py+h*(1-voffset)))
+    if len(points)>0:
+      draw.line(points,fill=0)
+    draw.text((px,py),"{:.0f}".format(maxx),font=font_small,fill=0)
+    draw.text((px,py+h-10),"{:.0f}".format(minx),font=font_small,fill=0)
 
 class opts:
   # Timing
@@ -66,7 +77,7 @@ class opts:
   fsize_small = 10 # size of axis label font
 
   plot_gap = 5     # vspace between blots
-  axiswidth = 15   # space for tick labels beside plot
+  axis_width = 15   # space for tick labels beside plot
 
 font = ImageFont.truetype('fonts/SourceSansPro-Regular.ttf', opts.fsize)
 font_small = ImageFont.truetype('fonts/SourceSansPro-Regular.ttf', opts.fsize_small)
@@ -75,7 +86,20 @@ class App:
   def __init__(self):
     self.edisplay = EpdDisplay()
     self.w = Weather()
-    self.wdata = None
+    self.wdata = WData()
+
+  def read(self,file="data.csv"):
+    if os.path.exists(file):
+      self.wdata.read(file)
+    else:
+      raise Exception("No file: {}".format(file))
+
+  def write(self,file="data.csv"):
+    self.wdata.write(file,append=True)
+
+  def pad(self,n=5):
+    for i in range(n):
+      self.wdata.store(None,None,None,None)
 
   def draw(self):
     def getLast(x):
@@ -83,23 +107,30 @@ class App:
       if len(xl) > 0: return xl[-1]
       return None
     img = self.edisplay.sizedImage()
-    width, height = im.size
+    width, height = img.size
     draw = ImageDraw.Draw(img)
     
-    plot_width = width - opts.text_length - lwidth
+    plot_width = width - opts.text_length
     plot_height = (height-4*opts.plot_gap)/3
     
     font_offset = (plot_height-opts.fsize)/2
 
-    if self.wdata is None:
-      return
     temx = self.wdata.temperature
     humx = self.wdata.humidity
     prex = self.wdata.pressure
 
+    print("Lengths:")
+    print("  tem:{}".format(len(temx)))
+    print("  hum:{}".format(len(humx)))
+    print("  pre:{}".format(len(prex)))
+
     tem = getLast(temx)
     hum = getLast(humx)
     pre = getLast(prex)
+
+    tem = 0 if tem is None else tem
+    hum = 0 if hum is None else hum
+    pre = 0 if pre is None else pre
 
     draw.text((5, font_offset+opts.plot_gap), "T:  {:.1f}°".format(tem), font = font, fill = 0)
     draw.text((5, font_offset+2*opts.plot_gap + plot_height), "H:  {:.1f}%".format(hum), font = font, fill = 0)
@@ -115,20 +146,21 @@ class App:
 
   # 3 threads: probe, display, buttons (interaction)? Can I interupt on gpio?
   def probe(self):
-    if self.wdata is None:
-      self.wdata = WData()
     t0 = 0
     while True:
       wdata2 = WData()
-      for i in range(self.numx): # number of averages
+      for i in range(opts.numx): # number of averages
         wdata2.store(t0,self.w.get_temperature(),self.w.get_humidity(),self.w.get_pressure())
-        time.sleep(self.timx/self.numx)
+        time.sleep(opts.timx/opts.numx)
       self.wdata.store(t0,*wdata2.get_means())
-      self.wdata.write(fname,append=True)
-      if not t0 % self.disx:
+      if not t0 % opts.disx:
         self.draw()
+        self.write()
       del wdata2
       t0 += 1
+      print(t0)
 
 app = App()
-app.run()
+app.read()
+app.pad()
+app.probe()

@@ -1,10 +1,11 @@
 import os,csv
 
 class WData:
-  time        = []
-  temperature = []
-  humidity    = []
-  pressure    = []
+  def __init__(self):
+    self.time        = []
+    self.temperature = []
+    self.humidity    = []
+    self.pressure    = []
 
   def store(self, time, temp, hum, pres):
     self.time.append(time)
@@ -32,34 +33,31 @@ class WData:
         if x[i] is not None:
           r += x[i]
           n += 1
-      if i == 0: return None
-      return r / i
+      if n == 0: return None
+      return r / n
     if include_time:
       return (self.time[ti[0]], meanlist(self.temperature), meanlist(self.humidity), meanlist(self.pressure))
     else:
       return (meanlist(self.temperature), meanlist(self.humidity), meanlist(self.pressure))
 
-  @classmethod
   def read(self, file):
     def str2val(val):
       if val=="": return None
       return float(val)
-    wdata = WData()
     with open(file, "r") as f:
       reader = csv.DictReader(f, delimiter=',', quotechar='\"')
       for row in reader:
         if "time" in row and "temperature" in row and "humidity" in row and "pressure" in row:
-          wdata.time.append(str2val(row["time"]))
-          wdata.temperature.append(str2val(row["temperature"]))
-          wdata.humidity.append(str2val(row["humidity"]))
-          wdata.pressure.append(str2val(row["pressure"]))
+          self.time.append(str2val(row["time"]))
+          self.temperature.append(str2val(row["temperature"]))
+          self.humidity.append(str2val(row["humidity"]))
+          self.pressure.append(str2val(row["pressure"]))
         else:
           raise Exception("csv must have columns: time, temperature, humidity, pressure")
-    return wdata
   
   def write(self, file, append=False):
     # missing values
-    def val2str(val):
+    def valstr(val):
       if val is None: return ""
       return str(val)
     # Does the file exists?
