@@ -1,3 +1,3 @@
 #!/bin/bash
-cd /home/pi/project
-python3 project.py &
+cd /home/pi/pi_thermo
+python3 App.py &

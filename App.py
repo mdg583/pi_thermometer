@@ -11,8 +11,8 @@ import board,busio,adafruit_dht,adafruit_bmp280b
 from waveshare_epd import epd2in7
 from PIL import Image, ImageDraw, ImageFont
 
-from .EpdDisplay import EpdDisplay
-from .Weather import Weather
+from EpdDisplay import EpdDisplay
+from Weather import Weather
 
 # Feature: zoom
 # - one x-value for each 5 minutes
@@ -71,12 +71,13 @@ class opts:
 
   # Drawing options
   text_length = 75 # hspace for current readings on left
-  fheight = 16     # size of current readings font
+  fsize = 16       # size of current readings font
+  fsize_small = 10 # size of axis label font
   plot_gap = 5     # vspace between blots
   axiswidth = 15   # space for tick labels beside plot
 
-font = ImageFont.truetype('fonts/SourceSansPro-Regular.ttf', fheight)
-font_small = ImageFont.truetype('fonts/SourceSansPro-Regular.ttf', 10)
+font = ImageFont.truetype('fonts/SourceSansPro-Regular.ttf', opts.fsize)
+font_small = ImageFont.truetype('fonts/SourceSansPro-Regular.ttf', opts.fsize_small)
 
 class App:
   def __init__(self):
@@ -96,7 +97,7 @@ class App:
     plot_width = width - opts.text_length - lwidth
     plot_height = (height-4*opts.plot_gap)/3
     
-    font_offset = (plot_height-opts.fheight)/2
+    font_offset = (plot_height-opts.fsize)/2
 
     if self.wdata is None:
       return
