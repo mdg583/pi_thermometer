@@ -1,10 +1,15 @@
-import os,sys,time
+import os,sys,time,logging
 from datetime import date
 from PIL import Image, ImageDraw, ImageFont
 
 from EpdDisplay import EpdDisplay
 from Weather import Weather
 from WData import WData
+
+# Logging
+logging.basicConfig(filename="messages.log",level=logging.DEBUG)
+
+logging.info("\nStarting pi_thermo App")
 
 # Feature: zoom
 # - one x-value for each 5 minutes
@@ -37,6 +42,8 @@ def plot_data(draw, x, pos, size, minspan=5):
   for i in range(0,int((w-opts.axis_width)/5)):
     draw.point((px+opts.axis_width+5*i,py+h/2),fill=0)
   # TODO zoom
+  logging.debug("Plot size: {} x {}".format(w,h))
+  logging.debug("{} data [{}-{}]".format(w-opts.axis_width,len(x)-(w-opts.axis_width),len(x)))
   if w > opts.axis_width:
     x2 = x[max(len(x)-(w-opts.axis_width),0):len(x)]
   else:
@@ -67,9 +74,9 @@ def plot_data(draw, x, pos, size, minspan=5):
 
 class opts:
   # Timing
-  numx = 30   # probes per measurement
-  timx = 5.0 #*60 # seconds per measurement
-  disx = 5    # measurements per display update
+  numx = 30     # probes per measurement
+  timx = 5.0*60 # seconds per measurement
+  disx = 1      # measurements per display update
 
   # Drawing options
   text_length = 75 # hspace for current readings on left
@@ -89,17 +96,17 @@ class App:
     self.wdata = WData()
 
   def read(self,file="data.csv"):
+    logging.info("Reading data from {}".format(file))
     if os.path.exists(file):
       self.wdata.read(file)
     else:
-      raise Exception("No file: {}".format(file))
+      logging.info("No data to load")
 
-  def write(self,file="data.csv"):
-    self.wdata.write(file,append=True)
+  def write(self,wdata,file="data.csv"):
+    wdata.write(file,append=True,last=True)
 
   def pad(self,n=5):
-    for i in range(n):
-      self.wdata.store(None,None,None,None)
+    self.wdata.store(None,None,None,None)
 
   def draw(self):
     def getLast(x):
@@ -119,10 +126,10 @@ class App:
     humx = self.wdata.humidity
     prex = self.wdata.pressure
 
-    print("Lengths:")
-    print("  tem:{}".format(len(temx)))
-    print("  hum:{}".format(len(humx)))
-    print("  pre:{}".format(len(prex)))
+    logging.debug("Lengths:")
+    logging.debug("  tem:{}".format(len(temx)))
+    logging.debug("  hum:{}".format(len(humx)))
+    logging.debug("  pre:{}".format(len(prex)))
 
     tem = getLast(temx)
     hum = getLast(humx)
@@ -146,19 +153,21 @@ class App:
 
   # 3 threads: probe, display, buttons (interaction)? Can I interupt on gpio?
   def probe(self):
+    logging.info("Beginning probe")
     t0 = 0
     while True:
       wdata2 = WData()
       for i in range(opts.numx): # number of averages
+        logging.debug(".")
         wdata2.store(t0,self.w.get_temperature(),self.w.get_humidity(),self.w.get_pressure())
         time.sleep(opts.timx/opts.numx)
       self.wdata.store(t0,*wdata2.get_means())
       if not t0 % opts.disx:
         self.draw()
-        self.write()
+        self.write(wdata2)
       del wdata2
       t0 += 1
-      print(t0)
+      logging.debug("Time: {}".format(t0))
 
 app = App()
 app.read()

@@ -55,7 +55,7 @@ class WData:
         else:
           raise Exception("csv must have columns: time, temperature, humidity, pressure")
   
-  def write(self, file, append=False):
+  def write(self, file, append=False, last=False):
     # missing values
     def valstr(val):
       if val is None: return ""
@@ -67,7 +67,11 @@ class WData:
     with open(file, ftype) as f:
       writer = csv.DictWriter(f, delimiter=',', quotechar='\"', fieldnames=fieldnames)
       if write_header: writer.writeheader()
-      for i in range(len(self.time)):
+      if last:
+        r = [len(self.time)-1]
+      else:
+        r = range(len(self.time))
+      for i in r:
         row = {
           'time': valstr(self.time[i]),
           'temperature': valstr(self.temperature[i]),
